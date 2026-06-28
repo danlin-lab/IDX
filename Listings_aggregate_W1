@@ -1,0 +1,56 @@
+import os
+import glob
+import pandas as pd
+RAW_DATA = "C:/Users/17415/Desktop/IDX"
+OUTPUT_FILE = "C:/Users/17415/Desktop/IDX/Listings_aggregate.csv"
+OUTPUT_FILE_FILTERED = "C:/Users/17415/Desktop/IDX/Listings_aggregate_filtered.csv"
+
+def aggregate_listings():
+    file_pattern = os.path.join(RAW_DATA, "CRMLSListing*.csv")
+    file_list = sorted(glob.glob(file_pattern))
+    if not file_list:
+        print("Error: No CRMLSListing CSV files found. Please check the data directory path.")
+        return
+
+    print(f"[Listings Pipeline] Starting aggregation. Found {len(file_list)} monthly files...")
+    
+    df_list = []
+    total_raw_rows = 0
+
+    for file in file_list:
+        df_month = pd.read_csv(file)
+        month_rows = len(df_month)
+        total_raw_rows += month_rows
+        print(f" - {os.path.basename(file)}: {month_rows} rows")
+        df_list.append(df_month)
+    
+    # Concatenate all monthly datasets
+    combined_df = pd.concat(df_list, ignore_index=True)
+    concat_rows = len(combined_df)
+
+    deduplicated_df = combined_df.drop_duplicates()
+    dedup_rows = len(deduplicated_df)
+    deduplicated_df.to_csv(OUTPUT_FILE, index=False)
+    
+    # Filter for PropertyType == 'Residential'
+    filtered_df = deduplicated_df[deduplicated_df['PropertyType'] == 'Residential']
+    final_rows = len(filtered_df)
+    
+    # Save the filtered dataset to a new CSV file
+    filtered_df.to_csv(OUTPUT_FILE_FILTERED, index=False)
+    
+    # Print summary
+    print(f"Sum of individual monthly rows (Raw Sum):      {total_raw_rows}")
+    print(f"Rows after concatenation (pd.concat):          {concat_rows}")
+    print(f"Rows after removing exact identical records:   {dedup_rows}")
+    print(f"Dropped duplicate records count:               {concat_rows - dedup_rows}")
+    print(f"Final rows after Residential filter:           {final_rows}")
+    print(f"Dropped non-residential records count:         {dedup_rows - final_rows}")
+
+if __name__ == "__main__":
+    aggregate_listings()
+
+# - Total row counts before concatenation (Sum of monthly files): [860898]
+# - Total row counts after concatenation (Combined dataset):      [860898]
+# - Total row counts after removing exact duplicate rows:         [860898]
+# - Row counts after the Residential filter:                      [547162]
